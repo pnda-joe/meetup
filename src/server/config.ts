@@ -18,7 +18,7 @@ export function getConfig(overrides: Partial<AppConfig> = {}): AppConfig {
   const isProduction = process.env.NODE_ENV === "production";
 
   return {
-    appOrigin: process.env.APP_ORIGIN ?? "http://localhost:3000",
+    appOrigin: process.env.APP_ORIGIN ?? (isProduction ? "http://localhost:3000" : "http://localhost:5173"),
     cookieSecret: process.env.COOKIE_SECRET ?? "dev-cookie-secret-change-me",
     databasePath: process.env.DATABASE_PATH ?? "meetup.db",
     isProduction,
