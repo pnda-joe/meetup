@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
-import type { CalendarResponse, User } from "../../shared/types";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import type { CalendarDay, CalendarResponse, User } from "../../shared/types";
 import { api } from "./api";
 
 type Route = {
@@ -24,6 +24,17 @@ function routeFromPath(): Route {
 function navigate(path: string): void {
   window.history.pushState({}, "", path);
   window.dispatchEvent(new PopStateEvent("popstate"));
+}
+
+const fullDateFormatter = new Intl.DateTimeFormat("en-IE", {
+  weekday: "long",
+  month: "long",
+  day: "numeric",
+  year: "numeric"
+});
+
+function formatDate(date: string): string {
+  return fullDateFormatter.format(new Date(`${date}T12:00:00`));
 }
 
 export function App() {
@@ -57,10 +68,10 @@ export function App() {
   }
 
   if (route.name === "admin" && user?.role === "admin") {
-    return <AdminScreen user={user} onLogout={() => logout(setUser)} />;
+    return <AdminScreen user={user} onUserChange={setUser} onLogout={() => logout(setUser)} />;
   }
 
-  return <CalendarScreen user={user!} onLogout={() => logout(setUser)} />;
+  return <CalendarScreen user={user!} onUserChange={setUser} onLogout={() => logout(setUser)} />;
 }
 
 async function logout(setUser: (user: User | null) => void) {
@@ -171,11 +182,96 @@ function RegisterScreen({ inviteCode, onRegister }: { inviteCode: string; onRegi
   );
 }
 
-function AppHeader({ user, onLogout }: { user: User; onLogout: () => void }) {
+async function imageFileToAvatarUrl(file: File): Promise<string> {
+  const imageUrl = URL.createObjectURL(file);
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const nextImage = new Image();
+      nextImage.onload = () => resolve(nextImage);
+      nextImage.onerror = () => reject(new Error("Could not read image"));
+      nextImage.src = imageUrl;
+    });
+    const size = 256;
+    const scale = Math.min(size / image.width, size / image.height, 1);
+    const width = Math.max(1, Math.round(image.width * scale));
+    const height = Math.max(1, Math.round(image.height * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const context = canvas.getContext("2d");
+    if (!context) {
+      throw new Error("Could not prepare image");
+    }
+    context.fillStyle = "#f5f2ea";
+    context.fillRect(0, 0, size, size);
+    context.drawImage(image, (size - width) / 2, (size - height) / 2, width, height);
+    return canvas.toDataURL("image/jpeg", 0.82);
+  } finally {
+    URL.revokeObjectURL(imageUrl);
+  }
+}
+
+function Avatar({ user, size = "medium" }: { user: Pick<User, "name" | "avatarUrl">; size?: "small" | "medium" | "large" }) {
+  return user.avatarUrl ? (
+    <img className={`avatar ${size}`} src={user.avatarUrl} alt="" />
+  ) : (
+    <span className={`avatar avatar-initial ${size}`}>{user.name.trim().slice(0, 1).toUpperCase()}</span>
+  );
+}
+
+function ProfileControl({ user, onUserChange }: { user: User; onUserChange: (user: User) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function saveFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const avatarUrl = await imageFileToAvatarUrl(file);
+      const response = await api.saveAvatar(avatarUrl);
+      onUserChange(response.user);
+    } finally {
+      setBusy(false);
+      event.target.value = "";
+    }
+  }
+
+  async function removeAvatar() {
+    setBusy(true);
+    try {
+      const response = await api.saveAvatar(null);
+      onUserChange(response.user);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="profile-control">
+      <button className="avatar-button" onClick={() => inputRef.current?.click()} disabled={busy} title="Change profile picture">
+        <Avatar user={user} />
+      </button>
+      <input ref={inputRef} className="file-input" type="file" accept="image/*" onChange={saveFile} />
+      <span>{user.name}</span>
+      {user.avatarUrl && (
+        <button className="text-button" onClick={removeAvatar} disabled={busy}>
+          Remove photo
+        </button>
+      )}
+    </div>
+  );
+}
+
+function AppHeader({ user, onUserChange, onLogout }: { user: User; onUserChange: (user: User) => void; onLogout: () => void }) {
   return (
     <header className="topbar">
       <button className="brand" onClick={() => navigate("/calendar")}>Meetup</button>
       <nav>
+        <ProfileControl user={user} onUserChange={onUserChange} />
         <button onClick={() => navigate("/calendar")}>Calendar</button>
         {user.role === "admin" && <button onClick={() => navigate("/admin")}>Admin</button>}
         <button onClick={onLogout}>Sign out</button>
@@ -184,10 +280,14 @@ function AppHeader({ user, onLogout }: { user: User; onLogout: () => void }) {
   );
 }
 
-function CalendarScreen({ user, onLogout }: { user: User; onLogout: () => void }) {
+function CalendarScreen({ user, onUserChange, onLogout }: { user: User; onUserChange: (user: User) => void; onLogout: () => void }) {
   const [calendar, setCalendar] = useState<CalendarResponse | null>(null);
   const [error, setError] = useState("");
   const [busyDate, setBusyDate] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<CalendarDay | null>(null);
+  const [meetupLocation, setMeetupLocation] = useState("");
+  const [meetupTime, setMeetupTime] = useState("");
+  const [meetupNote, setMeetupNote] = useState("");
 
   useEffect(() => {
     api.calendar().then(setCalendar).catch((err) => setError(err instanceof Error ? err.message : "Could not load calendar"));
@@ -210,9 +310,47 @@ function CalendarScreen({ user, onLogout }: { user: User; onLogout: () => void }
     }
   }
 
+  function saveUser(nextUser: User) {
+    onUserChange(nextUser);
+    setCalendar((current) =>
+      current
+        ? {
+            ...current,
+            participants: current.participants.map((participant) =>
+              participant.id === nextUser.id ? { ...participant, avatarUrl: nextUser.avatarUrl } : participant
+            )
+          }
+        : current
+    );
+  }
+
+  function sendMeetupEmail(event: FormEvent) {
+    event.preventDefault();
+    if (!selectedDate || !calendar) {
+      return;
+    }
+
+    const recipients = calendar.participants.map((participant) => participant.email).join(",");
+    const subject = `Meetup on ${formatDate(selectedDate.date)}`;
+    const body = [
+      `Hi everyone,`,
+      ``,
+      `The group is available for a meetup on ${formatDate(selectedDate.date)}.`,
+      meetupTime ? `Time: ${meetupTime}` : "",
+      meetupLocation ? `Location: ${meetupLocation}` : "",
+      meetupNote ? `Details: ${meetupNote}` : "",
+      ``,
+      `See you there.`
+    ]
+      .filter((line, index, lines) => line || lines[index - 1])
+      .join("\n");
+
+    window.location.href = `mailto:${recipients}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  }
+
   return (
     <main className="app-shell">
-      <AppHeader user={user} onLogout={onLogout} />
+      <AppHeader user={user} onUserChange={saveUser} onLogout={onLogout} />
       <section className="summary">
         <div>
           <h1>Availability</h1>
@@ -227,53 +365,113 @@ function CalendarScreen({ user, onLogout }: { user: User; onLogout: () => void }
       {!calendar ? (
         <p>Loading calendar...</p>
       ) : (
-        <section className="months">
-          {calendar.months.map((month) => (
-            <article className="month" key={`${month.year}-${month.month}`}>
-              <h2>{month.label}</h2>
-              <div className="weekday-row">
-                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-                  <span key={day}>{day}</span>
+        <section className="calendar-layout">
+          <div className="months">
+            {calendar.months.map((month) => (
+              <article className="month" key={`${month.year}-${month.month}`}>
+                <h2>{month.label}</h2>
+                <div className="weekday-row">
+                  {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+                    <span key={day}>{day}</span>
+                  ))}
+                </div>
+                <div className="calendar-grid">
+                  {month.days.map((day) => {
+                    const className = [
+                      "day",
+                      day.isCurrentMonth ? "" : "muted",
+                      day.currentUserAvailable ? "selected" : "",
+                      day.allAvailable ? "all-available" : day.availableCount > 0 ? "partial" : "",
+                      day.isToday ? "today" : ""
+                    ]
+                      .filter(Boolean)
+                      .join(" ");
+
+                    return (
+                      <button
+                        className={className}
+                        key={day.date}
+                        onClick={() => toggle(day.date, !day.currentUserAvailable)}
+                        disabled={busyDate === day.date}
+                        title={day.availableNames.length ? day.availableNames.join(", ") : "No availability yet"}
+                      >
+                        <span className="date-number">{Number(day.date.slice(8, 10))}</span>
+                        <span className="count">
+                          {day.availableCount}/{day.participantCount}
+                        </span>
+                        <span className="names">{day.availableNames.slice(0, 2).join(", ") || "\u00a0"}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </article>
+            ))}
+          </div>
+          <aside className="meetup-sidebar">
+            <h2>Possible Days</h2>
+            {possibleDates.length ? (
+              <div className="possible-date-list">
+                {possibleDates.map((day) => (
+                  <button className="possible-date" key={day.date} onClick={() => setSelectedDate(day)}>
+                    <span>{formatDate(day.date)}</span>
+                    <small>Email group</small>
+                  </button>
                 ))}
               </div>
-              <div className="calendar-grid">
-                {month.days.map((day) => {
-                  const className = [
-                    "day",
-                    day.isCurrentMonth ? "" : "muted",
-                    day.currentUserAvailable ? "selected" : "",
-                    day.allAvailable ? "all-available" : day.availableCount > 0 ? "partial" : "",
-                    day.isToday ? "today" : ""
-                  ]
-                    .filter(Boolean)
-                    .join(" ");
-
-                  return (
-                    <button
-                      className={className}
-                      key={day.date}
-                      onClick={() => toggle(day.date, !day.currentUserAvailable)}
-                      disabled={busyDate === day.date}
-                      title={day.availableNames.length ? day.availableNames.join(", ") : "No availability yet"}
-                    >
-                      <span className="date-number">{Number(day.date.slice(8, 10))}</span>
-                      <span className="count">
-                        {day.availableCount}/{day.participantCount}
-                      </span>
-                      <span className="names">{day.availableNames.slice(0, 2).join(", ") || "\u00a0"}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </article>
-          ))}
+            ) : (
+              <p>No full-group dates yet.</p>
+            )}
+            <div className="participant-strip">
+              {calendar.participants.map((participant) => (
+                <Avatar key={participant.id} user={{ name: participant.name, avatarUrl: participant.avatarUrl }} size="small" />
+              ))}
+            </div>
+          </aside>
         </section>
+      )}
+      {selectedDate && calendar && (
+        <div className="modal-backdrop" role="presentation" onClick={() => setSelectedDate(null)}>
+          <section className="modal-panel" role="dialog" aria-modal="true" aria-labelledby="meetup-email-title" onClick={(event) => event.stopPropagation()}>
+            <header className="modal-header">
+              <div>
+                <h2 id="meetup-email-title">Email Meetup</h2>
+                <p>{formatDate(selectedDate.date)}</p>
+              </div>
+              <button className="text-button" onClick={() => setSelectedDate(null)}>
+                Close
+              </button>
+            </header>
+            <form className="meetup-form" onSubmit={sendMeetupEmail}>
+              <label>
+                Location
+                <input value={meetupLocation} onChange={(event) => setMeetupLocation(event.target.value)} placeholder="Cafe, park, address..." />
+              </label>
+              <label>
+                Time
+                <input value={meetupTime} onChange={(event) => setMeetupTime(event.target.value)} placeholder="7:30 PM" />
+              </label>
+              <label>
+                Note
+                <textarea value={meetupNote} onChange={(event) => setMeetupNote(event.target.value)} placeholder="What should everyone know?" rows={5} />
+              </label>
+              <div className="email-recipients">
+                {calendar.participants.map((participant) => (
+                  <span key={participant.id}>
+                    <Avatar user={{ name: participant.name, avatarUrl: participant.avatarUrl }} size="small" />
+                    {participant.name}
+                  </span>
+                ))}
+              </div>
+              <button>Open email</button>
+            </form>
+          </section>
+        </div>
       )}
     </main>
   );
 }
 
-function AdminScreen({ user, onLogout }: { user: User; onLogout: () => void }) {
+function AdminScreen({ user, onUserChange, onLogout }: { user: User; onUserChange: (user: User) => void; onLogout: () => void }) {
   const [users, setUsers] = useState<User[]>([]);
   const [inviteUrl, setInviteUrl] = useState("");
   const [error, setError] = useState("");
@@ -294,7 +492,7 @@ function AdminScreen({ user, onLogout }: { user: User; onLogout: () => void }) {
 
   return (
     <main className="app-shell">
-      <AppHeader user={user} onLogout={onLogout} />
+      <AppHeader user={user} onUserChange={onUserChange} onLogout={onLogout} />
       <section className="summary">
         <div>
           <h1>Admin</h1>
@@ -315,7 +513,10 @@ function AdminScreen({ user, onLogout }: { user: User; onLogout: () => void }) {
         {users.map((listedUser) => (
           <div className="user-row" key={listedUser.id}>
             <div>
-              <strong>{listedUser.name}</strong>
+              <strong>
+                <Avatar user={listedUser} size="small" />
+                {listedUser.name}
+              </strong>
               <span>{listedUser.email}</span>
             </div>
             <span className="badge">{listedUser.role}</span>

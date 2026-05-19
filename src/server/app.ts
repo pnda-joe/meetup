@@ -25,6 +25,10 @@ const availabilitySchema = z.object({
   available: z.boolean()
 });
 
+const avatarSchema = z.object({
+  avatarUrl: z.string().max(400_000).nullable()
+});
+
 export function createApp(db: Db, config: AppConfig) {
   const app = express();
   app.disable("x-powered-by");
@@ -38,6 +42,23 @@ export function createApp(db: Db, config: AppConfig) {
 
   app.get("/api/me", (req, res) => {
     res.json({ user: req.user ?? null });
+  });
+
+  app.patch("/api/me/avatar", requireUser, (req, res) => {
+    const parsed = avatarSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Avatar image is too large" });
+      return;
+    }
+
+    if (parsed.data.avatarUrl && !parsed.data.avatarUrl.startsWith("data:image/")) {
+      res.status(400).json({ error: "Avatar must be an image" });
+      return;
+    }
+
+    db.prepare("UPDATE users SET avatar_url = ? WHERE id = ?").run(parsed.data.avatarUrl, req.user!.id);
+    const row = db.prepare("SELECT * FROM users WHERE id = ?").get(req.user!.id) as Record<string, unknown>;
+    res.json({ user: publicUser(row) });
   });
 
   app.post("/api/auth/login", async (req, res) => {
@@ -153,7 +174,7 @@ export function createApp(db: Db, config: AppConfig) {
 
   app.get("/api/admin/users", requireAdmin, (_req, res) => {
     const users = db
-      .prepare("SELECT id, email, name, role, active, created_at FROM users ORDER BY created_at")
+      .prepare("SELECT id, email, name, role, active, avatar_url AS avatarUrl, created_at FROM users ORDER BY created_at")
       .all();
     res.json({ users });
   });

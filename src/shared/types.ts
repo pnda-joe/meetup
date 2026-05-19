@@ -4,6 +4,7 @@ export type User = {
   name: string;
   role: "admin" | "user";
   active: boolean;
+  avatarUrl: string | null;
 };
 
 export type CalendarDay = {
@@ -27,5 +28,5 @@ export type CalendarMonth = {
 
 export type CalendarResponse = {
   months: CalendarMonth[];
-  participants: Pick<User, "id" | "name" | "email">[];
+  participants: Pick<User, "id" | "name" | "email" | "avatarUrl">[];
 };

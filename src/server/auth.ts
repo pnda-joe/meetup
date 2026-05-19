@@ -50,7 +50,7 @@ export function authMiddleware(db: Db) {
 
     const row = db
       .prepare(
-        `SELECT users.id, users.email, users.name, users.role, users.active
+        `SELECT users.id, users.email, users.name, users.role, users.active, users.avatar_url
          FROM sessions
          JOIN users ON users.id = sessions.user_id
          WHERE sessions.token_hash = ? AND sessions.expires_at > CURRENT_TIMESTAMP AND users.active = 1`

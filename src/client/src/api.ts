@@ -24,6 +24,11 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 export const api = {
   me: () => request<{ user: User | null }>("/api/me"),
+  saveAvatar: (avatarUrl: string | null) =>
+    request<{ user: User }>("/api/me/avatar", {
+      method: "PATCH",
+      body: JSON.stringify({ avatarUrl })
+    }),
   login: (email: string, password: string) =>
     request<{ user: User }>("/api/auth/login", {
       method: "POST",

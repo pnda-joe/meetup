@@ -17,7 +17,8 @@ body {
 }
 
 button,
-input {
+input,
+textarea {
   font: inherit;
 }
 
@@ -40,7 +41,8 @@ button:disabled {
   opacity: 0.6;
 }
 
-input {
+input,
+textarea {
   width: 100%;
   border: 1px solid #c9c6ba;
   border-radius: 6px;
@@ -48,6 +50,11 @@ input {
   color: #1d2520;
   min-height: 42px;
   padding: 8px 10px;
+}
+
+textarea {
+  min-height: 112px;
+  resize: vertical;
 }
 
 label {
@@ -87,7 +94,7 @@ label {
 }
 
 .app-shell {
-  width: min(1280px, 100%);
+  width: min(1720px, 100%);
   margin: 0 auto;
   padding: 20px;
 }
@@ -120,6 +127,7 @@ label {
 }
 
 nav {
+  align-items: center;
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
@@ -134,6 +142,74 @@ nav button {
 
 nav button:hover {
   background: #e9e4d5;
+}
+
+.profile-control {
+  align-items: center;
+  color: #415047;
+  display: flex;
+  gap: 8px;
+  min-height: 42px;
+}
+
+.profile-control > span {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.avatar-button,
+.avatar-button:hover,
+.text-button,
+.text-button:hover {
+  background: transparent;
+}
+
+.avatar-button {
+  border: 0;
+  min-height: 0;
+  padding: 0;
+}
+
+.text-button {
+  color: #245c46;
+  font-size: 13px;
+  font-weight: 800;
+  min-height: 0;
+  padding: 0;
+}
+
+.file-input {
+  display: none;
+}
+
+.avatar {
+  border-radius: 999px;
+  display: inline-grid;
+  flex: 0 0 auto;
+  object-fit: cover;
+  place-items: center;
+}
+
+.avatar.small {
+  height: 28px;
+  width: 28px;
+}
+
+.avatar.medium {
+  height: 38px;
+  width: 38px;
+}
+
+.avatar.large {
+  height: 52px;
+  width: 52px;
+}
+
+.avatar-initial {
+  background: #dfeadf;
+  border: 1px solid #b8cbb7;
+  color: #245c46;
+  font-weight: 900;
 }
 
 .summary {
@@ -161,6 +237,13 @@ nav button:hover {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px;
+}
+
+.calendar-layout {
+  align-items: start;
+  display: grid;
+  gap: 20px;
+  grid-template-columns: minmax(0, 1fr) 300px;
 }
 
 .month {
@@ -255,6 +338,122 @@ nav button:hover {
   white-space: nowrap;
 }
 
+.meetup-sidebar {
+  background: #fff;
+  border: 1px solid #d7d1c2;
+  border-radius: 8px;
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  position: sticky;
+  top: 18px;
+}
+
+.meetup-sidebar h2 {
+  font-size: 20px;
+  margin: 0;
+}
+
+.meetup-sidebar p {
+  color: #68746d;
+  margin: 0;
+}
+
+.possible-date-list {
+  display: grid;
+  gap: 8px;
+}
+
+.possible-date {
+  align-items: start;
+  background: #eef7ef;
+  border: 1px solid #b9d3bf;
+  color: #1d3c2e;
+  display: grid;
+  gap: 2px;
+  justify-items: start;
+  min-height: 0;
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.possible-date:hover {
+  background: #dceee0;
+}
+
+.possible-date span {
+  font-weight: 850;
+}
+
+.possible-date small {
+  color: #597064;
+  font-weight: 750;
+}
+
+.participant-strip,
+.email-recipients {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.modal-backdrop {
+  align-items: center;
+  background: rgba(33, 41, 35, 0.42);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 20px;
+  position: fixed;
+  z-index: 10;
+}
+
+.modal-panel {
+  background: #fff;
+  border: 1px solid #d7d1c2;
+  border-radius: 8px;
+  box-shadow: 0 20px 70px rgba(30, 40, 33, 0.24);
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  padding: 20px;
+  width: min(520px, 100%);
+}
+
+.modal-header {
+  align-items: start;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.modal-header h2 {
+  margin: 0;
+}
+
+.modal-header p {
+  color: #68746d;
+  margin: 4px 0 0;
+}
+
+.meetup-form {
+  display: grid;
+  gap: 14px;
+}
+
+.email-recipients span {
+  align-items: center;
+  background: #f5f2ea;
+  border: 1px solid #ded8c8;
+  border-radius: 999px;
+  color: #415047;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 800;
+  gap: 7px;
+  padding: 4px 10px 4px 4px;
+}
+
 .error {
   background: #fff1ef;
   border: 1px solid #f0bbb3;
@@ -292,6 +491,12 @@ nav button:hover {
   gap: 4px;
 }
 
+.user-row strong {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
 .user-row span {
   color: #68746d;
 }
@@ -304,8 +509,16 @@ nav button:hover {
 }
 
 @media (max-width: 980px) {
+  .calendar-layout {
+    grid-template-columns: 1fr;
+  }
+
   .months {
     grid-template-columns: 1fr;
+  }
+
+  .meetup-sidebar {
+    position: static;
   }
 
   .day {
@@ -327,6 +540,11 @@ nav button:hover {
 
   nav,
   .summary button {
+    width: 100%;
+  }
+
+  .profile-control {
+    order: -1;
     width: 100%;
   }
 

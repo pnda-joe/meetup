@@ -29,6 +29,7 @@ export function migrate(db: Db): void {
       password_hash TEXT NOT NULL,
       role TEXT NOT NULL CHECK (role IN ('admin', 'user')),
       active INTEGER NOT NULL DEFAULT 1,
+      avatar_url TEXT,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -57,6 +58,11 @@ export function migrate(db: Db): void {
       PRIMARY KEY (user_id, date)
     );
   `);
+
+  const userColumns = db.prepare("PRAGMA table_info(users)").all() as { name: string }[];
+  if (!userColumns.some((column) => column.name === "avatar_url")) {
+    db.exec("ALTER TABLE users ADD COLUMN avatar_url TEXT");
+  }
 }
 
 export async function seedAdmin(db: Db, config: AppConfig): Promise<void> {
@@ -76,7 +82,8 @@ export function publicUser(row: Record<string, unknown>): User {
     email: String(row.email),
     name: String(row.name),
     role: row.role === "admin" ? "admin" : "user",
-    active: Boolean(row.active)
+    active: Boolean(row.active),
+    avatarUrl: row.avatar_url ? String(row.avatar_url) : null
   };
 }
 

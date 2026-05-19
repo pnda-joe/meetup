@@ -69,6 +69,20 @@ describe("meetup api", () => {
     await guest.get("/api/calendar").expect(200);
   });
 
+  it("lets a user save and remove a profile picture", async () => {
+    const agent = request.agent(app);
+    await agent.post("/api/auth/login").send({ email: "admin@example.com", password: "password123" }).expect(200);
+
+    const saved = await agent
+      .patch("/api/me/avatar")
+      .send({ avatarUrl: "data:image/png;base64,avatar" })
+      .expect(200);
+    expect(saved.body.user.avatarUrl).toBe("data:image/png;base64,avatar");
+
+    const removed = await agent.patch("/api/me/avatar").send({ avatarUrl: null }).expect(200);
+    expect(removed.body.user.avatarUrl).toBeNull();
+  });
+
   it("prevents non-admin users from creating invites", async () => {
     const code = createInviteCode();
     db.prepare("INSERT INTO invites (code, created_by_user_id) VALUES (?, 1)").run(code);

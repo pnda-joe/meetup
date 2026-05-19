@@ -10,8 +10,8 @@ type AvailabilityRow = {
 
 export function buildCalendar(db: Db, currentUserId: number, timezone: string, now = new Date()): CalendarResponse {
   const participants = db
-    .prepare("SELECT id, name, email FROM users WHERE active = 1 ORDER BY name COLLATE NOCASE")
-    .all() as { id: number; name: string; email: string }[];
+    .prepare("SELECT id, name, email, avatar_url AS avatarUrl FROM users WHERE active = 1 ORDER BY name COLLATE NOCASE")
+    .all() as { id: number; name: string; email: string; avatarUrl: string | null }[];
 
   const months = getRollingMonths(timezone, now);
   const gridDates = months.flatMap((month) => getMonthGrid(month.year, month.month));
