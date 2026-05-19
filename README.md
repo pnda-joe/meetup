@@ -92,7 +92,3 @@ npm run lint
 npm test
 npm run build
 ```
-
-## Git commits
-
-Commit messages for this project should not include `Co-authored-by` or AI attribution trailers.
