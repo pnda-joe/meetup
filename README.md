@@ -8,9 +8,16 @@ A small private availability calendar for a registered group. Users mark whole d
 - Email/password login with HttpOnly session cookies
 - One shared rolling calendar for the current month and the next two months
 - Per-day availability counts and participant names
+- Sidebar listing dates when every active participant is available
+- Meetup email composer with date, location, time, and notes
+- User profile photos with initials fallback
 - Admin invite creation
 - SQLite persistence
 - Docker Compose deployment
+
+## Changelog
+
+Feature history and project improvements are tracked in [CHANGELOG.md](CHANGELOG.md).
 
 ## Local development
 
